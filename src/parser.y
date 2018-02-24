@@ -25,7 +25,8 @@
    * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
    * OTHER DEALINGS IN THE SOFTWARE.
    */
-  
+
+#include <iostream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
@@ -34,8 +35,8 @@
 
 #include "../src/mididev.hpp"
 
-extern void yyerror(snd_seq_t *seq, const char*);
-int yylex(snd_seq_t *seq);
+extern void yyerror(MidiDev *md, const char *msg);
+int yylex(MidiDev *md);
 
 #define YYERROR_VERBOSE yes
 #define YYDEBUG 1
@@ -47,21 +48,16 @@ static void sighandler(int)
   stop = 1;
 }
 
-  
-//int yylex(MidiDev *md);
-//void yyerror (MidiDev *md, const char *msg);
+void send_simple_osc(lo_address ardour, const char *order);
 
-//void print_event(jack_midi_event_t e); 
-//void send_simple_osc(MidiDev *md, const char *order);
- 
 %}
 
 
 /* 
  * We use the sequencer to get the MIDI messages
  */
-%parse-param {snd_seq_t *seq}
-%lex-param {snd_seq_t *seq}
+%parse-param {MidiDev *md}
+%lex-param {MidiDev *md}
 
 
 /*
@@ -116,7 +112,9 @@ events: %empty /* empty*/
 pad : PAD_01_PRESS PAD_01_RELEASE {
   puts("PAD1!");
  }
-| PAD_02_PRESS PAD_02_RELEASE
+| PAD_02_PRESS PAD_02_RELEASE {
+  send_simple_osc(md->ardour, "/toggle_roll");
+ }
 | PAD_03_PRESS PAD_03_RELEASE
 | PAD_04_PRESS PAD_04_RELEASE
 | PAD_05_PRESS PAD_05_RELEASE
@@ -152,7 +150,8 @@ program: PROGRAM_01 {
 
 %%
 
-int yylex(snd_seq_t *seq)
+
+int yylex(MidiDev *md)
 {
   struct pollfd *pfds;
   int npfds;
@@ -162,17 +161,17 @@ int yylex(snd_seq_t *seq)
   signal(SIGINT, sighandler);
   signal(SIGTERM, sighandler);
   
-  npfds = snd_seq_poll_descriptors_count(seq, POLLIN);
+  npfds = snd_seq_poll_descriptors_count(md->seq, POLLIN);
   pfds = static_cast<struct pollfd *>(alloca(sizeof(*pfds) * npfds));
 
-  snd_seq_poll_descriptors(seq, pfds, npfds, POLLIN);
+  snd_seq_poll_descriptors(md->seq, pfds, npfds, POLLIN);
   if (poll(pfds, npfds, -1) < 0) {
     //puts("Some error?");
   }
 
   do {
     snd_seq_event_t *event;
-    err = snd_seq_event_input(seq, &event);
+    err = snd_seq_event_input(md->seq, &event);
     if (err < 0) break;
    
     if (event) {
@@ -210,24 +209,17 @@ int yylex(snd_seq_t *seq)
   return EOF;
 }
 
-void yyerror (snd_seq_t *seq, const char *msg) {
+
+void yyerror (MidiDev *md, const char *msg) {
   printf ("%s\n", msg);
 }
 
 
-/* void yyerror (MidiDev *md, const char *msg) { */
-/*   printf ("%s\n", msg); */
-/* } */
-
-/* void print_event(jack_midi_event_t e) { */
-/*   printf ("DEBUG [%d]:\t0x%08x\n", e.time, e.size); */
-/* } */
-
-/* void send_simple_osc(MidiDev *md, const char *order) { */
-/*   if(lo_send(md->ardour, order, NULL) == -1) { */
-/*     std::cout << "OSC error: " << lo_address_errno(md->ardour) << ", " */
-/* 	      << lo_address_errstr(md->ardour) << std::endl; */
-/*   } else { */
-/*     puts(order); */
-/*   } */
-/* } */
+void send_simple_osc(lo_address ardour, const char *order) {
+  if(lo_send(ardour, order, NULL) == -1) {
+    std::cout << "OSC error: " << lo_address_errno(ardour) << ", "
+	      << lo_address_errstr(ardour) << std::endl;
+  } else {
+    puts(order);
+  }
+}

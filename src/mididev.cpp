@@ -28,7 +28,7 @@
 #include "mididev.hpp"
 
 
-extern int yyparse(snd_seq_t *seq);
+extern int yyparse(MidiDev *seq);
 
 
 MidiDev::MidiDev(std::string& osc_url) {
@@ -60,7 +60,7 @@ MidiDev::MidiDev(std::string& osc_url) {
   puts("Set to non-block.");
     
   // Create a OSC address
-  //ardour = lo_address_new_from_url(osc_url.c_str());
+  ardour = lo_address_new_from_url(osc_url.c_str());
 }
 
 
@@ -70,7 +70,7 @@ MidiDev::~MidiDev() {
 
 
 void MidiDev::parse() {
-  yyparse(seq);  
+  yyparse(this);
 }
 
 

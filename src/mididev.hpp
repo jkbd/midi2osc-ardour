@@ -13,10 +13,9 @@ public:
   void parse();
 
   lo_address ardour;
+  snd_seq_t *seq;
   
 private:
-  snd_seq_t *seq;
-
   void check_snd(const char *operation, int err);
 };
 
